@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.353">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Madeline Gillman">
+
+<title>An Excellent Classifier</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="an_excellent_classifier_files/libs/clipboard/clipboard.min.js"></script>
+<script src="an_excellent_classifier_files/libs/quarto-html/quarto.js"></script>
+<script src="an_excellent_classifier_files/libs/quarto-html/popper.min.js"></script>
+<script src="an_excellent_classifier_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="an_excellent_classifier_files/libs/quarto-html/anchor.min.js"></script>
+<link href="an_excellent_classifier_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="an_excellent_classifier_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="an_excellent_classifier_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="an_excellent_classifier_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="an_excellent_classifier_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">An Excellent Classifier</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Madeline Gillman </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="read-in-the-data" class="level2">
+<h2 class="anchored" data-anchor-id="read-in-the-data">Read in the data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get sheet names corresponding to study</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>sheets <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">excel_sheets</span>(<span class="st">"data/nature24473_MOESM5_survival.xlsx"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Read in and merge data, add column for study</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>outcomes <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(<span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(sheets),</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>                             <span class="cf">function</span>(i)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>                               readxl<span class="sc">::</span><span class="fu">read_excel</span>(</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>                                 <span class="st">"data/nature24473_MOESM5_survival.xlsx"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">sheet =</span> sheets[i],</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">col_types =</span> <span class="fu">c</span>(<span class="st">"guess"</span>, <span class="st">"guess"</span>, <span class="st">"numeric"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>                               <span class="fu">mutate</span>(<span class="at">study =</span> <span class="fu">str_replace</span>(sheets[i], <span class="st">"Survival "</span>, <span class="st">""</span>))))</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Now do the same for neoantigens data</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>sheets <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">excel_sheets</span>(<span class="st">"data/nature24473_MOESM4_neoantigens.xlsx"</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>neoantigens <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(<span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(sheets),</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                                <span class="cf">function</span>(i)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>                                  readxl<span class="sc">::</span><span class="fu">read_excel</span>(</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>                                    <span class="st">"data/nature24473_MOESM4_neoantigens.xlsx"</span>,</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">sheet =</span> sheets[i]) <span class="sc">%&gt;%</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>                                  <span class="fu">mutate</span>(<span class="at">study =</span> sheets[i]))) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(outcomes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 4
+  Sample Months Status study          
+  &lt;chr&gt;   &lt;dbl&gt;  &lt;dbl&gt; &lt;chr&gt;          
+1 Pat02   53.7       0 VanAllen et al.
+2 Pat03    3.29      1 VanAllen et al.
+3 Pat04   32.4       0 VanAllen et al.
+4 Pat06    5.29      1 VanAllen et al.
+5 Pat08    4.60      1 VanAllen et al.
+6 Pat100  11.8       1 VanAllen et al.</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(neoantigens)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 10
+     ID MUTATION_ID     Sample WT.Peptide MT.Peptide MT.Allele WT.Score MT.Score
+  &lt;dbl&gt; &lt;chr&gt;           &lt;chr&gt;  &lt;chr&gt;      &lt;chr&gt;      &lt;chr&gt;        &lt;dbl&gt;    &lt;dbl&gt;
+1     1 1_1563747_C_T_… Pat02  NHREVAQIL  NYREVAQIL  C0702          701       70
+2     2 1_17087582_G_A… Pat02  SPSNDFQVL  SPLNDFQVL  B0801          739      202
+3     3 1_17087582_G_A… Pat02  SPSNDFQVL  SPLNDFQVL  B0702           32       37
+4     4 1_21806573_A_G… Pat02  LLDEKEPEV  LLDEKGPEV  A0201            8        9
+5     5 1_46073697_C_T… Pat02  KPGQEAPVL  KPGQEASVL  B0702           90       31
+6     6 1_75693438_C_T… Pat02  YFELQQTWF  YFKLQQTWF  C0702          311      213
+# ℹ 2 more variables: HLA &lt;chr&gt;, study &lt;chr&gt;</code></pre>
+</div>
+</div>
+</section>
+<section id="engineer-features" class="level2">
+<h2 class="anchored" data-anchor-id="engineer-features">Engineer features</h2>
+<p>First, a bit more data tidying. Let’s split up some columns and make indicator columns to make generating features easier.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> neoantigens <span class="sc">%&gt;%</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">separate_wider_delim</span>(HLA, <span class="at">delim =</span> <span class="st">","</span>, <span class="at">names =</span> <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">"HLA_"</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>)), <span class="at">too_few =</span> <span class="st">"align_end"</span>, <span class="at">too_many =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">tmp =</span> <span class="fu">strsplit</span>(<span class="fu">as.character</span>(WT.Peptide), <span class="st">""</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(WT.Peptide, ID) <span class="sc">%&gt;%</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">n =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">spread</span>(n, tmp) <span class="sc">%&gt;%</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename_with</span>(<span class="sc">~</span> <span class="fu">paste0</span>(<span class="st">"WT_peptide_pos_"</span>, .x, <span class="at">recycle0 =</span> <span class="cn">TRUE</span>), <span class="at">.cols =</span> <span class="fu">c</span>(<span class="dv">16</span><span class="sc">:</span><span class="dv">24</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">tmp =</span> <span class="fu">strsplit</span>(<span class="fu">as.character</span>(MT.Peptide), <span class="st">""</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(MT.Peptide, ID) <span class="sc">%&gt;%</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">n =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">spread</span>(n, tmp) <span class="sc">%&gt;%</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename_with</span>(<span class="sc">~</span> <span class="fu">paste0</span>(<span class="st">"MT_peptide_pos_"</span>, .x, <span class="at">recycle0 =</span> <span class="cn">TRUE</span>), <span class="at">.cols =</span> <span class="fu">c</span>(<span class="dv">25</span><span class="sc">:</span><span class="dv">33</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">mutation_chr =</span> <span class="fu">str_split_i</span>(MUTATION_ID, <span class="st">"_"</span>, <span class="dv">1</span>),</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>         <span class="at">mutation_pos =</span> <span class="fu">str_split_i</span>(MUTATION_ID, <span class="st">"_"</span>, <span class="dv">2</span>),</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>         <span class="at">mutation_a1 =</span> <span class="fu">str_split_i</span>(MUTATION_ID, <span class="st">"_"</span>, <span class="dv">3</span>),</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>         <span class="at">mutation_a2 =</span> <span class="fu">str_split_i</span>(MUTATION_ID, <span class="st">"_"</span>, <span class="dv">4</span>),</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>         <span class="at">a1_C =</span> <span class="fu">case_when</span>(mutation_a1 <span class="sc">==</span> <span class="st">"C"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>         <span class="at">a1_G =</span> <span class="fu">case_when</span>(mutation_a1 <span class="sc">==</span> <span class="st">"G"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>         <span class="at">a1_A =</span> <span class="fu">case_when</span>(mutation_a1 <span class="sc">==</span> <span class="st">"A"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>         <span class="at">a1_T =</span> <span class="fu">case_when</span>(mutation_a1 <span class="sc">==</span> <span class="st">"T"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>         <span class="at">a2_C =</span> <span class="fu">case_when</span>(mutation_a2 <span class="sc">==</span> <span class="st">"C"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>         <span class="at">a2_G =</span> <span class="fu">case_when</span>(mutation_a2 <span class="sc">==</span> <span class="st">"G"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>         <span class="at">a2_A =</span> <span class="fu">case_when</span>(mutation_a2 <span class="sc">==</span> <span class="st">"A"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>         <span class="at">a2_T =</span> <span class="fu">case_when</span>(mutation_a2 <span class="sc">==</span> <span class="st">"T"</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>                          <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Making our first set of features: summing up the number of amino acids overall and in each peptide position for each patient.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>aa_list <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"L"</span>, <span class="st">"V"</span>, <span class="st">"F"</span>, <span class="st">"T"</span>, <span class="st">"A"</span>, <span class="st">"I"</span>, <span class="st">"M"</span>, <span class="st">"C"</span>, <span class="st">"G"</span>, <span class="st">"Y"</span>, <span class="st">"H"</span>, <span class="st">"K"</span>, <span class="st">"S"</span>, <span class="st">"E"</span>, <span class="st">"R"</span>, <span class="st">"W"</span>, <span class="st">"P"</span>, <span class="st">"Q"</span>, <span class="st">"D"</span>, <span class="st">"N"</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (aa <span class="cf">in</span> aa_list) {</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT.Peptide, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT.Peptide, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos1_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_1, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos2_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_2, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos3_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_3, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos4_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_4, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos5_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_5, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos6_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_6, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos7_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_7, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos8_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_8, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_MT_pos9_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>MT_peptide_pos_9, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos1_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_1, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos2_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_2, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos3_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_3, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos4_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_4, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos5_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_5, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos6_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_6, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos7_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_7, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos8_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_8, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_WT_pos9_"</span>, aa)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>WT_peptide_pos_9, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> aa))</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Our second set of features: summing up how many mutations on each chromosome for each patient.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>chr_list <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">22</span>, <span class="st">"X"</span>, <span class="st">"Y"</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (chr <span class="cf">in</span> chr_list) {</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  dat[<span class="fu">paste0</span>(<span class="st">"count_chr"</span>, chr)] <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(dat<span class="sc">$</span>mutation_chr, <span class="st">""</span>), <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">==</span> chr))</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>}  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now let’s collapse by subject and join with the outcomes data for analysis:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>dat2 <span class="ot">&lt;-</span> dat <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">c</span>(mutation_pos), as.numeric)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Sample) <span class="sc">%&gt;%</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">c</span>(<span class="dv">6</span>, <span class="dv">7</span>, <span class="dv">34</span>, <span class="dv">37</span><span class="sc">:</span><span class="dv">468</span>), sum, <span class="at">.names =</span> <span class="st">"sum_{.col}"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(outcomes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(Sample)`</code></pre>
+</div>
+</div>
+</section>
+<section id="finding-useful-features" class="level2">
+<h2 class="anchored" data-anchor-id="finding-useful-features">Finding “useful” features</h2>
+<p>And by useful, I mean they generate a significant split in the data. I’m going to be looking for these using the entire dataset.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># create a dataframe to retain features</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>df_with_good_features <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Sample =</span> dat2<span class="sc">$</span>Sample)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop through each column and create a new binary feature based on mean or median</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">2</span><span class="sc">:</span><span class="dv">436</span>)) {</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">#print(i)</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  feature <span class="ot">&lt;-</span> <span class="fu">colnames</span>(dat2)[i]</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  mean_i <span class="ot">&lt;-</span> <span class="fu">mean</span>(dat2[[i]])</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (mean_i <span class="sc">==</span> <span class="dv">0</span>) { <span class="co"># If there's no variance in the feature, move on</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">next</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  median_i <span class="ot">&lt;-</span> <span class="fu">median</span>(dat2[[i]])</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  temp <span class="ot">&lt;-</span> dat2 <span class="sc">%&gt;%</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(Sample, <span class="fu">all_of</span>(i), Months, Status) <span class="sc">%&gt;%</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">above_mean =</span> <span class="fu">case_when</span>(.data[[<span class="fu">colnames</span>(dat2)[i]]] <span class="sc">&gt;</span> mean_i <span class="sc">~</span> <span class="dv">1</span>, <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>),</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">above_median =</span> <span class="fu">case_when</span>(.data[[<span class="fu">colnames</span>(dat2)[i]]] <span class="sc">&gt;</span> median_i <span class="sc">~</span> <span class="dv">1</span>, <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>)</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate log rank p value</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>  km_diff <span class="ot">&lt;-</span> <span class="fu">survdiff</span>(<span class="fu">Surv</span>(Months, Status) <span class="sc">~</span> above_mean, <span class="at">data =</span> temp)</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (km_diff<span class="sc">$</span>pvalue <span class="sc">&lt;</span> <span class="fl">0.05</span>) {</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">print</span>(<span class="fu">paste0</span>(<span class="st">"column number "</span>, i, <span class="st">" has a p-value of "</span>, km_diff<span class="sc">$</span>pvalue, <span class="st">" (mean)"</span>))</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add feature to dataframe to use for model</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>    df_with_good_features <span class="ot">&lt;-</span> temp <span class="sc">%&gt;%</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(<span class="dv">1</span>, <span class="dv">5</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>      <span class="fu">rename_with</span>(<span class="sc">~</span><span class="fu">paste0</span>(feature, <span class="st">"_above_mean"</span>), <span class="fu">matches</span>(<span class="st">"above_mean"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">left_join</span>(df_with_good_features)</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>  km_diff <span class="ot">&lt;-</span> <span class="fu">survdiff</span>(<span class="fu">Surv</span>(Months, Status) <span class="sc">~</span> above_median, <span class="at">data =</span> temp)</span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (km_diff<span class="sc">$</span>pvalue <span class="sc">&lt;</span> <span class="fl">0.05</span>) {</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>    <span class="fu">print</span>(<span class="fu">paste0</span>(<span class="st">"column number "</span>, i, <span class="st">" has a p-value of "</span>, km_diff<span class="sc">$</span>pvalue, <span class="st">" (median)"</span>))</span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add feature to dataframe to use for model</span></span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>    df_with_good_features <span class="ot">&lt;-</span> temp <span class="sc">%&gt;%</span></span>
+<span id="cb11-34"><a href="#cb11-34" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(<span class="dv">1</span>, <span class="dv">6</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-35"><a href="#cb11-35" aria-hidden="true" tabindex="-1"></a>      <span class="fu">rename_with</span>(<span class="sc">~</span><span class="fu">paste0</span>(feature, <span class="st">"_above_median"</span>), <span class="fu">matches</span>(<span class="st">"above_median"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb11-36"><a href="#cb11-36" aria-hidden="true" tabindex="-1"></a>      <span class="fu">left_join</span>(df_with_good_features)</span>
+<span id="cb11-37"><a href="#cb11-37" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb11-38"><a href="#cb11-38" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "column number 2 has a p-value of 0.0447453383518615 (mean)"
+[1] "column number 4 has a p-value of 0.0230009910888821 (mean)"
+[1] "column number 5 has a p-value of 0.0140795919784464 (median)"
+[1] "column number 6 has a p-value of 0.0378925812415947 (median)"
+[1] "column number 8 has a p-value of 0.0169561822903697 (mean)"
+[1] "column number 10 has a p-value of 0.00603375042635501 (mean)"
+[1] "column number 10 has a p-value of 0.0455276963520781 (median)"
+[1] "column number 12 has a p-value of 0.0366373424892781 (mean)"
+[1] "column number 12 has a p-value of 0.027189989336928 (median)"
+[1] "column number 13 has a p-value of 0.0263147277311545 (median)"
+[1] "column number 15 has a p-value of 0.0486894319758719 (median)"
+[1] "column number 17 has a p-value of 0.0403729129119503 (median)"
+[1] "column number 19 has a p-value of 0.0480989651626312 (median)"
+[1] "column number 20 has a p-value of 0.0259842727873005 (median)"
+[1] "column number 22 has a p-value of 0.0322336083467359 (median)"
+[1] "column number 27 has a p-value of 0.0415357098983233 (median)"
+[1] "column number 29 has a p-value of 0.0224751276259443 (median)"
+[1] "column number 31 has a p-value of 0.0265862034849499 (median)"
+[1] "column number 33 has a p-value of 0.00642078797761971 (median)"
+[1] "column number 34 has a p-value of 0.00488742772665154 (median)"
+[1] "column number 35 has a p-value of 0.014188990624516 (median)"
+[1] "column number 37 has a p-value of 0.0143536444687929 (median)"
+[1] "column number 40 has a p-value of 0.0261754018779639 (median)"
+[1] "column number 41 has a p-value of 0.0288970518466814 (median)"
+[1] "column number 43 has a p-value of 0.0210473880997189 (median)"
+[1] "column number 45 has a p-value of 0.0193909743572345 (median)"
+[1] "column number 46 has a p-value of 0.0156935269402163 (median)"
+[1] "column number 48 has a p-value of 0.0466905669788288 (mean)"
+[1] "column number 48 has a p-value of 0.00373259520326279 (median)"
+[1] "column number 49 has a p-value of 0.0285561412732493 (median)"
+[1] "column number 50 has a p-value of 0.0498894872498977 (median)"
+[1] "column number 52 has a p-value of 0.0188397917249204 (median)"
+[1] "column number 55 has a p-value of 0.0276758602893867 (median)"
+[1] "column number 56 has a p-value of 0.0333765781274191 (median)"
+[1] "column number 58 has a p-value of 0.0434213032624256 (median)"
+[1] "column number 59 has a p-value of 0.0217648502470677 (median)"
+[1] "column number 60 has a p-value of 0.0404863796868527 (mean)"
+[1] "column number 64 has a p-value of 0.0438155079361048 (median)"
+[1] "column number 65 has a p-value of 0.0151077376085789 (median)"
+[1] "column number 68 has a p-value of 0.0150413856280221 (median)"
+[1] "column number 71 has a p-value of 0.0499153747552886 (mean)"
+[1] "column number 71 has a p-value of 0.0356207782879299 (median)"
+[1] "column number 72 has a p-value of 0.0314561932942931 (mean)"
+[1] "column number 74 has a p-value of 0.0188602230864867 (median)"
+[1] "column number 75 has a p-value of 0.0352708564291483 (mean)"
+[1] "column number 76 has a p-value of 0.00246767350611709 (median)"
+[1] "column number 77 has a p-value of 0.00908365532251165 (median)"
+[1] "column number 78 has a p-value of 0.0327750675891761 (median)"
+[1] "column number 79 has a p-value of 0.0373389374819942 (median)"
+[1] "column number 80 has a p-value of 0.036121843737979 (median)"
+[1] "column number 81 has a p-value of 0.0310585100680771 (median)"
+[1] "column number 82 has a p-value of 0.0128286910124298 (median)"
+[1] "column number 85 has a p-value of 0.00108275716724668 (median)"
+[1] "column number 86 has a p-value of 0.0324965167217493 (median)"
+[1] "column number 87 has a p-value of 0.0253629076757833 (median)"
+[1] "column number 88 has a p-value of 0.0246701853229943 (median)"
+[1] "column number 91 has a p-value of 0.00318144424402079 (median)"
+[1] "column number 96 has a p-value of 0.0230598388328513 (median)"
+[1] "column number 98 has a p-value of 0.0432183401474321 (median)"
+[1] "column number 100 has a p-value of 0.0432157221671721 (mean)"
+[1] "column number 100 has a p-value of 0.0360240159713785 (median)"
+[1] "column number 101 has a p-value of 0.0366728498780792 (mean)"
+[1] "column number 103 has a p-value of 0.0256659786761097 (mean)"
+[1] "column number 104 has a p-value of 0.0168155275146806 (median)"
+[1] "column number 105 has a p-value of 0.0275416581569317 (median)"
+[1] "column number 107 has a p-value of 0.0370176512224733 (median)"
+[1] "column number 109 has a p-value of 0.0404501105406317 (mean)"
+[1] "column number 114 has a p-value of 0.0377123134823165 (mean)"
+[1] "column number 117 has a p-value of 0.0246516267557402 (median)"
+[1] "column number 119 has a p-value of 0.0164818869797081 (median)"
+[1] "column number 121 has a p-value of 0.047570064580219 (median)"
+[1] "column number 122 has a p-value of 0.0162260481811393 (median)"
+[1] "column number 126 has a p-value of 0.0325568582512993 (median)"
+[1] "column number 127 has a p-value of 0.00638881001468882 (median)"
+[1] "column number 128 has a p-value of 0.0153911452685828 (median)"
+[1] "column number 130 has a p-value of 0.0171450779152572 (median)"
+[1] "column number 131 has a p-value of 0.028293060448571 (median)"
+[1] "column number 132 has a p-value of 0.0371312083144478 (median)"
+[1] "column number 133 has a p-value of 0.032582888034464 (median)"
+[1] "column number 134 has a p-value of 0.0334227223607583 (median)"
+[1] "column number 135 has a p-value of 0.0435705687867458 (mean)"
+[1] "column number 135 has a p-value of 0.0158273284983683 (median)"
+[1] "column number 136 has a p-value of 0.0209826853488029 (median)"
+[1] "column number 137 has a p-value of 0.0478757488827675 (mean)"
+[1] "column number 137 has a p-value of 0.0343904967586552 (median)"
+[1] "column number 139 has a p-value of 0.0492675531065005 (mean)"
+[1] "column number 142 has a p-value of 0.0039789619070661 (median)"
+[1] "column number 144 has a p-value of 0.0412729680802678 (mean)"
+[1] "column number 144 has a p-value of 0.0077378944867684 (median)"
+[1] "column number 145 has a p-value of 0.0104969767482946 (mean)"
+[1] "column number 145 has a p-value of 0.018901948188801 (median)"
+[1] "column number 146 has a p-value of 0.0310121044499547 (median)"
+[1] "column number 150 has a p-value of 0.0361676027135812 (median)"
+[1] "column number 151 has a p-value of 0.00160002255211911 (median)"
+[1] "column number 152 has a p-value of 0.0456455900741041 (median)"
+[1] "column number 154 has a p-value of 0.0491833908712004 (median)"
+[1] "column number 155 has a p-value of 0.0314356408148394 (mean)"
+[1] "column number 155 has a p-value of 0.0235670208309632 (median)"
+[1] "column number 158 has a p-value of 0.014078839779343 (mean)"
+[1] "column number 158 has a p-value of 0.00960833276949841 (median)"
+[1] "column number 162 has a p-value of 0.0291385435336191 (median)"
+[1] "column number 163 has a p-value of 0.020416651301711 (median)"
+[1] "column number 164 has a p-value of 0.0176337680209662 (median)"
+[1] "column number 166 has a p-value of 0.010749789531042 (median)"
+[1] "column number 167 has a p-value of 0.0207307516205597 (mean)"
+[1] "column number 167 has a p-value of 0.000751973828563669 (median)"
+[1] "column number 170 has a p-value of 0.0374602867194796 (median)"
+[1] "column number 171 has a p-value of 0.021160339810806 (median)"
+[1] "column number 177 has a p-value of 0.00795012191742886 (median)"
+[1] "column number 178 has a p-value of 0.0208604780269284 (median)"
+[1] "column number 182 has a p-value of 0.00555291728826353 (median)"
+[1] "column number 185 has a p-value of 0.00301521776373538 (median)"
+[1] "column number 188 has a p-value of 0.0165431879045406 (median)"
+[1] "column number 191 has a p-value of 0.0103820906137256 (median)"
+[1] "column number 193 has a p-value of 0.0306145352508821 (median)"
+[1] "column number 194 has a p-value of 0.0273661536161626 (mean)"
+[1] "column number 194 has a p-value of 0.0193528417397252 (median)"
+[1] "column number 195 has a p-value of 0.0363470850039664 (median)"
+[1] "column number 196 has a p-value of 0.00925217711083624 (median)"
+[1] "column number 198 has a p-value of 0.0365404779977031 (median)"
+[1] "column number 199 has a p-value of 0.0174869289811364 (median)"
+[1] "column number 200 has a p-value of 0.0120140254491872 (median)"
+[1] "column number 201 has a p-value of 0.027361407624224 (median)"
+[1] "column number 202 has a p-value of 0.0230186967209104 (median)"
+[1] "column number 203 has a p-value of 0.023130415064836 (median)"
+[1] "column number 204 has a p-value of 0.0136788217071076 (median)"
+[1] "column number 207 has a p-value of 0.0377310706775507 (mean)"
+[1] "column number 207 has a p-value of 0.0132927274931815 (median)"
+[1] "column number 208 has a p-value of 0.00719634436577168 (median)"
+[1] "column number 209 has a p-value of 0.047506559465955 (median)"
+[1] "column number 210 has a p-value of 0.0489432206083825 (median)"
+[1] "column number 212 has a p-value of 0.0377043653359417 (median)"
+[1] "column number 213 has a p-value of 0.0264715511585915 (median)"
+[1] "column number 215 has a p-value of 0.00435361093197296 (median)"
+[1] "column number 216 has a p-value of 0.0491221932230368 (median)"
+[1] "column number 221 has a p-value of 0.00943289548356734 (median)"
+[1] "column number 224 has a p-value of 0.0486299602978995 (median)"
+[1] "column number 225 has a p-value of 0.0308311817217452 (median)"
+[1] "column number 226 has a p-value of 0.0193337965263306 (median)"
+[1] "column number 228 has a p-value of 0.0470900221006419 (median)"
+[1] "column number 229 has a p-value of 0.0348064570118452 (median)"
+[1] "column number 230 has a p-value of 0.0152104393081591 (median)"
+[1] "column number 232 has a p-value of 0.00922826537977141 (median)"
+[1] "column number 236 has a p-value of 0.0313490953658195 (median)"
+[1] "column number 237 has a p-value of 0.0250873830242445 (median)"
+[1] "column number 239 has a p-value of 0.0420444807757053 (median)"
+[1] "column number 240 has a p-value of 0.00340611148040854 (median)"
+[1] "column number 245 has a p-value of 0.00597863174069088 (median)"
+[1] "column number 249 has a p-value of 0.0359265842357015 (mean)"
+[1] "column number 249 has a p-value of 0.00557311769378889 (median)"
+[1] "column number 251 has a p-value of 0.0138470257006989 (median)"
+[1] "column number 255 has a p-value of 0.02276034947249 (median)"
+[1] "column number 256 has a p-value of 0.00823506427908482 (median)"
+[1] "column number 262 has a p-value of 0.0453388083313867 (median)"
+[1] "column number 263 has a p-value of 0.0467731463582647 (mean)"
+[1] "column number 263 has a p-value of 0.00211519987404041 (median)"
+[1] "column number 264 has a p-value of 0.0133385925690425 (median)"
+[1] "column number 265 has a p-value of 0.0259580390416383 (median)"
+[1] "column number 271 has a p-value of 0.0347132571024541 (mean)"
+[1] "column number 271 has a p-value of 0.0379984273776235 (median)"
+[1] "column number 273 has a p-value of 0.016783876274487 (median)"
+[1] "column number 274 has a p-value of 0.00491029158074473 (median)"
+[1] "column number 275 has a p-value of 0.0309977660173118 (mean)"
+[1] "column number 275 has a p-value of 0.0151423961980858 (median)"
+[1] "column number 276 has a p-value of 0.0084850094624533 (mean)"
+[1] "column number 276 has a p-value of 0.0368100510671225 (median)"
+[1] "column number 278 has a p-value of 0.00581598177324026 (median)"
+[1] "column number 279 has a p-value of 0.00504919806591094 (median)"
+[1] "column number 280 has a p-value of 0.0192942949919402 (median)"
+[1] "column number 281 has a p-value of 0.00651651007103843 (median)"
+[1] "column number 282 has a p-value of 0.00640169824054608 (median)"
+[1] "column number 283 has a p-value of 0.00813178392700535 (mean)"
+[1] "column number 283 has a p-value of 0.0193512417872866 (median)"
+[1] "column number 284 has a p-value of 0.0123166393014003 (mean)"
+[1] "column number 284 has a p-value of 0.0365551393042241 (median)"
+[1] "column number 285 has a p-value of 0.00216836147389301 (mean)"
+[1] "column number 285 has a p-value of 0.0167833386191503 (median)"
+[1] "column number 287 has a p-value of 0.0120285562164111 (median)"
+[1] "column number 288 has a p-value of 0.00509004187761208 (median)"
+[1] "column number 289 has a p-value of 0.0288584724060528 (median)"
+[1] "column number 290 has a p-value of 0.0455431653206433 (median)"
+[1] "column number 291 has a p-value of 0.00375178102570676 (median)"
+[1] "column number 293 has a p-value of 0.0347400987266384 (median)"
+[1] "column number 296 has a p-value of 0.025675565691281 (median)"
+[1] "column number 298 has a p-value of 0.0165255396122532 (mean)"
+[1] "column number 298 has a p-value of 0.00210246293550769 (median)"
+[1] "column number 300 has a p-value of 0.0186761356036222 (median)"
+[1] "column number 304 has a p-value of 0.0189037370990262 (median)"
+[1] "column number 305 has a p-value of 0.0340350483160456 (median)"
+[1] "column number 306 has a p-value of 0.0442207814869785 (median)"
+[1] "column number 307 has a p-value of 0.0312046277246967 (mean)"
+[1] "column number 307 has a p-value of 0.00165846875622055 (median)"
+[1] "column number 313 has a p-value of 0.0244706871063301 (mean)"
+[1] "column number 313 has a p-value of 0.034793036611283 (median)"
+[1] "column number 314 has a p-value of 0.0277570714623071 (mean)"
+[1] "column number 314 has a p-value of 0.0332005147083119 (median)"
+[1] "column number 318 has a p-value of 0.030199180948194 (median)"
+[1] "column number 320 has a p-value of 0.00711162922001093 (mean)"
+[1] "column number 320 has a p-value of 0.00270522102489838 (median)"
+[1] "column number 323 has a p-value of 0.00383989838207014 (mean)"
+[1] "column number 323 has a p-value of 0.017522050172816 (median)"
+[1] "column number 329 has a p-value of 0.00351490570687437 (mean)"
+[1] "column number 329 has a p-value of 0.00663668838476085 (median)"
+[1] "column number 330 has a p-value of 0.0392012125235197 (median)"
+[1] "column number 332 has a p-value of 0.000932873511024279 (mean)"
+[1] "column number 332 has a p-value of 0.0117725509621966 (median)"
+[1] "column number 334 has a p-value of 0.0460241308180831 (median)"
+[1] "column number 335 has a p-value of 0.0480930467444569 (median)"
+[1] "column number 337 has a p-value of 0.0174677983338767 (median)"
+[1] "column number 339 has a p-value of 0.0271101078403613 (median)"
+[1] "column number 340 has a p-value of 0.0466017354220169 (mean)"
+[1] "column number 341 has a p-value of 0.00676373949985338 (median)"
+[1] "column number 342 has a p-value of 0.0273953206087948 (median)"
+[1] "column number 346 has a p-value of 0.0362232945848884 (median)"
+[1] "column number 350 has a p-value of 0.00846765339596218 (median)"
+[1] "column number 352 has a p-value of 0.018965540354664 (median)"
+[1] "column number 355 has a p-value of 0.00943126939205987 (median)"
+[1] "column number 356 has a p-value of 0.0422995178719737 (median)"
+[1] "column number 357 has a p-value of 0.0126168102849029 (median)"
+[1] "column number 358 has a p-value of 0.0204050563332224 (median)"
+[1] "column number 359 has a p-value of 0.0163062103716259 (median)"
+[1] "column number 362 has a p-value of 0.0044516892436591 (median)"
+[1] "column number 363 has a p-value of 0.00978932339242685 (mean)"
+[1] "column number 363 has a p-value of 0.00144380064816933 (median)"
+[1] "column number 364 has a p-value of 0.0309148121511298 (median)"
+[1] "column number 365 has a p-value of 0.0374422019752844 (median)"
+[1] "column number 366 has a p-value of 0.037206762211237 (median)"
+[1] "column number 367 has a p-value of 0.025249159999801 (median)"
+[1] "column number 368 has a p-value of 0.00209913492096078 (median)"
+[1] "column number 369 has a p-value of 0.0229355596948034 (median)"
+[1] "column number 370 has a p-value of 0.0402789842962606 (median)"
+[1] "column number 371 has a p-value of 0.0300562087708294 (median)"
+[1] "column number 372 has a p-value of 0.00453275875957716 (mean)"
+[1] "column number 372 has a p-value of 0.00453275875957716 (median)"
+[1] "column number 373 has a p-value of 0.00409473993581522 (median)"
+[1] "column number 374 has a p-value of 0.00656391251592189 (median)"
+[1] "column number 375 has a p-value of 0.00607150952221326 (median)"
+[1] "column number 377 has a p-value of 0.00345283158480548 (mean)"
+[1] "column number 377 has a p-value of 0.00917196668171005 (median)"
+[1] "column number 379 has a p-value of 0.0119334628315369 (median)"
+[1] "column number 380 has a p-value of 0.00308829951699931 (median)"
+[1] "column number 383 has a p-value of 0.0460071827678907 (mean)"
+[1] "column number 383 has a p-value of 0.0460071827678907 (median)"
+[1] "column number 384 has a p-value of 0.00295374326090106 (median)"
+[1] "column number 385 has a p-value of 0.0312728944220104 (mean)"
+[1] "column number 385 has a p-value of 0.00929239091739398 (median)"
+[1] "column number 386 has a p-value of 0.0116786319944399 (mean)"
+[1] "column number 386 has a p-value of 0.00729974674645371 (median)"
+[1] "column number 387 has a p-value of 0.0422168260164299 (mean)"
+[1] "column number 387 has a p-value of 0.0122178126943353 (median)"
+[1] "column number 388 has a p-value of 0.00950277882463817 (median)"
+[1] "column number 389 has a p-value of 0.0259996276133903 (median)"
+[1] "column number 390 has a p-value of 0.0324139494577777 (median)"
+[1] "column number 391 has a p-value of 0.0142760577821536 (median)"
+[1] "column number 392 has a p-value of 0.0063750879035417 (mean)"
+[1] "column number 392 has a p-value of 0.0063750879035417 (median)"
+[1] "column number 393 has a p-value of 0.00795345656696159 (mean)"
+[1] "column number 393 has a p-value of 0.00612616295172423 (median)"
+[1] "column number 394 has a p-value of 0.0278078045135304 (mean)"
+[1] "column number 394 has a p-value of 0.014292575661505 (median)"
+[1] "column number 396 has a p-value of 0.00454645788240679 (median)"
+[1] "column number 397 has a p-value of 0.0202187034166393 (median)"
+[1] "column number 398 has a p-value of 0.0213364996652339 (mean)"
+[1] "column number 398 has a p-value of 0.0309700990359792 (median)"
+[1] "column number 399 has a p-value of 0.00301644238089071 (mean)"
+[1] "column number 399 has a p-value of 0.00908444554763544 (median)"
+[1] "column number 400 has a p-value of 0.0107851822155993 (median)"
+[1] "column number 401 has a p-value of 0.0374798938289689 (mean)"
+[1] "column number 401 has a p-value of 0.0167228045006762 (median)"
+[1] "column number 402 has a p-value of 0.00781335097802567 (median)"
+[1] "column number 405 has a p-value of 0.00122597143280465 (median)"
+[1] "column number 406 has a p-value of 0.0141573863800106 (median)"
+[1] "column number 407 has a p-value of 0.0232086048965759 (mean)"
+[1] "column number 408 has a p-value of 0.0111305874434686 (mean)"
+[1] "column number 408 has a p-value of 0.00819345065144906 (median)"
+[1] "column number 409 has a p-value of 0.04346623032276 (mean)"
+[1] "column number 409 has a p-value of 0.00694898649143727 (median)"
+[1] "column number 410 has a p-value of 0.00201981745847408 (median)"
+[1] "column number 411 has a p-value of 0.00864107195981286 (median)"
+[1] "column number 414 has a p-value of 0.0207198395793902 (median)"
+[1] "column number 415 has a p-value of 0.0476998219532624 (median)"
+[1] "column number 417 has a p-value of 0.0345065644526089 (median)"
+[1] "column number 420 has a p-value of 0.00025338596131657 (median)"
+[1] "column number 421 has a p-value of 0.0029532495378425 (median)"
+[1] "column number 435 has a p-value of 0.0265899310775519 (mean)"</code></pre>
+</div>
+</div>
+</section>
+<section id="select-features" class="level2">
+<h2 class="anchored" data-anchor-id="select-features">Select features</h2>
+<p>Now that we have found &gt; 200 potentially significant features, let’s use feature selection to keep the meaningful ones.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glmnet)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: Matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'Matrix'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loaded glmnet 4.1-8</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">#df_with_good_features_clean &lt;- df_with_good_features</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>df_with_good_features <span class="ot">&lt;-</span> df_with_good_features <span class="sc">%&gt;%</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(outcomes) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Status2 =</span> <span class="fu">factor</span>(<span class="fu">case_when</span>(Months <span class="sc">&gt;=</span> <span class="dv">14</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>                             <span class="cn">TRUE</span> <span class="sc">~</span> <span class="dv">0</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">na.omit</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(Sample)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(df_with_good_features[<span class="dv">2</span><span class="sc">:</span><span class="dv">286</span>])</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(x) <span class="ot">&lt;-</span> <span class="fu">colnames</span>(df_with_good_features)[<span class="dv">2</span><span class="sc">:</span><span class="dv">286</span>]</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(df_with_good_features<span class="sc">$</span>Status))</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>lasso_model <span class="ot">&lt;-</span> <span class="fu">cv.glmnet</span>(<span class="at">x =</span> x, <span class="at">y =</span> y)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>coef_matrix <span class="ot">&lt;-</span> <span class="fu">coef</span>(lasso_model, <span class="at">s =</span> lasso_model<span class="sc">$</span>lambda.min)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>selected_features <span class="ot">&lt;-</span> <span class="fu">colnames</span>(x)[<span class="fu">which</span>(coef_matrix <span class="sc">!=</span> <span class="dv">0</span>)]</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(selected_features)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "sum_count_chrX_above_mean"        "sum_count_chr5_above_median"     
+[3] "sum_count_MT_pos8_N_above_median" "sum_count_MT_pos9_Q_above_mean"  
+[5] "sum_count_WT_pos7_W_above_median" "sum_count_WT_pos1_E_above_median"</code></pre>
+</div>
+</div>
+<p>Add the selected features to our model and test it with a genuine train/test split. Note we are using a different outcome for this because why not 🤷‍♀️</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">35</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Define training/test datasets</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>sample <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="cn">TRUE</span>, <span class="cn">FALSE</span>), <span class="fu">nrow</span>(df_with_good_features), <span class="at">replace=</span><span class="cn">TRUE</span>, <span class="at">prob=</span><span class="fu">c</span>(<span class="fl">0.3</span>,<span class="fl">0.7</span>))</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>dat_train <span class="ot">&lt;-</span> df_with_good_features[sample, ]</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>dat_test <span class="ot">&lt;-</span> df_with_good_features[<span class="sc">!</span>sample, ]</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate classification model</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="co"># With 14 month outcome</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>default_glm_mod <span class="ot">&lt;-</span> caret<span class="sc">::</span><span class="fu">train</span>(</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">form =</span> Status2 <span class="sc">~</span> sum_count_chrX_above_mean <span class="sc">+</span> sum_count_chr5_above_median <span class="sc">+</span> sum_count_MT_pos8_N_above_median <span class="sc">+</span> sum_count_MT_pos9_Q_above_mean <span class="sc">+</span> </span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    sum_count_WT_pos7_W_above_median <span class="sc">+</span> sum_count_WT_pos1_E_above_median,</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> dat_train <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="fu">all_of</span>(<span class="fu">c</span>(<span class="dv">2</span><span class="sc">:</span><span class="dv">286</span>, <span class="dv">290</span>))),</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"glm"</span>,</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"binomial"</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>predictions <span class="ot">&lt;-</span> <span class="fu">predict</span>(default_glm_mod, <span class="at">newdata =</span> dat_test)</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>dat2 <span class="ot">&lt;-</span> <span class="fu">cbind</span>(dat_test, predictions) </span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>km_fit <span class="ot">&lt;-</span> <span class="fu">survfit</span>(<span class="fu">Surv</span>(Months, <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(Status2))) <span class="sc">~</span> predictions, <span class="at">data =</span> dat2)</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsurvplot</span>(km_fit,</span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>           <span class="at">data =</span> dat2,</span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>           <span class="at">risk.table =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>           <span class="at">pval =</span> <span class="cn">TRUE</span>, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">palette =</span> <span class="st">"jco"</span>, <span class="at">pval.method =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="an_excellent_classifier_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>This is also quite sensitive to which individuals end up in the test/train groups. If we update <code>set.seed()</code>, the resulting p-value is not longer significant:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">34</span>)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Define training/test datasets</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>sample <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="fu">c</span>(<span class="cn">TRUE</span>, <span class="cn">FALSE</span>), <span class="fu">nrow</span>(df_with_good_features), <span class="at">replace=</span><span class="cn">TRUE</span>, <span class="at">prob=</span><span class="fu">c</span>(<span class="fl">0.3</span>,<span class="fl">0.7</span>))</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>dat_train <span class="ot">&lt;-</span> df_with_good_features[sample, ]</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>dat_test <span class="ot">&lt;-</span> df_with_good_features[<span class="sc">!</span>sample, ]</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate classification model</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="co"># With 14 month outcome</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>default_glm_mod <span class="ot">&lt;-</span> caret<span class="sc">::</span><span class="fu">train</span>(</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">form =</span> Status2 <span class="sc">~</span> sum_count_chrX_above_mean <span class="sc">+</span> sum_count_chr5_above_median <span class="sc">+</span> sum_count_MT_pos8_N_above_median <span class="sc">+</span> sum_count_MT_pos9_Q_above_mean <span class="sc">+</span> </span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    sum_count_WT_pos7_W_above_median <span class="sc">+</span> sum_count_WT_pos1_E_above_median,</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> dat_train <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="fu">all_of</span>(<span class="fu">c</span>(<span class="dv">2</span><span class="sc">:</span><span class="dv">286</span>, <span class="dv">290</span>))),</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"glm"</span>,</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> <span class="st">"binomial"</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>predictions <span class="ot">&lt;-</span> <span class="fu">predict</span>(default_glm_mod, <span class="at">newdata =</span> dat_test)</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>dat2 <span class="ot">&lt;-</span> <span class="fu">cbind</span>(dat_test, predictions) </span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>km_fit <span class="ot">&lt;-</span> <span class="fu">survfit</span>(<span class="fu">Surv</span>(Months, <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(Status2))) <span class="sc">~</span> predictions, <span class="at">data =</span> dat2)</span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsurvplot</span>(km_fit,</span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a>           <span class="at">data =</span> dat2,</span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>           <span class="at">risk.table =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>           <span class="at">pval =</span> <span class="cn">TRUE</span>, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">palette =</span> <span class="st">"jco"</span>, <span class="at">pval.method =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="an_excellent_classifier_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

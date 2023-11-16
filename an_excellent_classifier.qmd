@@ -1,0 +1,291 @@
+---
+title: "An Excellent Classifier"
+author: "Madeline Gillman"
+format: html
+editor: visual
+mainfont: HelveticaNeue
+monofont: Monaco
+---
+
+```{r}
+#| include: false
+library(readxl)
+library(tidyverse)
+library(survival)
+library(survminer)
+library(broom)
+library(caret)
+library(glmnet)
+```
+
+## Read in the data
+
+```{r}
+#| warning: false
+
+# Get sheet names corresponding to study
+sheets <- readxl::excel_sheets("data/nature24473_MOESM5_survival.xlsx")
+
+# Read in and merge data, add column for study
+outcomes <- bind_rows(lapply(1:length(sheets),
+                             function(i)
+                               readxl::read_excel(
+                                 "data/nature24473_MOESM5_survival.xlsx",
+                                 sheet = sheets[i],
+                                 col_types = c("guess", "guess", "numeric")) %>%
+                               mutate(study = str_replace(sheets[i], "Survival ", ""))))
+
+# Now do the same for neoantigens data
+sheets <- readxl::excel_sheets("data/nature24473_MOESM4_neoantigens.xlsx")
+
+neoantigens <- bind_rows(lapply(1:length(sheets),
+                                function(i)
+                                  readxl::read_excel(
+                                    "data/nature24473_MOESM4_neoantigens.xlsx",
+                                    sheet = sheets[i]) %>%
+                                  mutate(study = sheets[i]))) 
+```
+
+```{r}
+head(outcomes)
+```
+
+```{r}
+head(neoantigens)
+```
+
+## Engineer features
+
+First, a bit more data tidying. Let's split up some columns and make indicator columns to make generating features easier.
+
+```{r}
+#| warning: false
+
+dat <- neoantigens %>%
+  separate_wider_delim(HLA, delim = ",", names = c(paste0("HLA_", 1:6)), too_few = "align_end", too_many = "drop") %>%
+  mutate(tmp = strsplit(as.character(WT.Peptide), "")) %>%
+  unnest() %>%
+  group_by(WT.Peptide, ID) %>%
+  mutate(n = 1:n()) %>%
+  spread(n, tmp) %>%
+  ungroup() %>%
+  rename_with(~ paste0("WT_peptide_pos_", .x, recycle0 = TRUE), .cols = c(16:24)) %>%
+  mutate(tmp = strsplit(as.character(MT.Peptide), "")) %>%
+  unnest() %>%
+  group_by(MT.Peptide, ID) %>%
+  mutate(n = 1:n()) %>%
+  spread(n, tmp) %>%
+  ungroup() %>%
+  rename_with(~ paste0("MT_peptide_pos_", .x, recycle0 = TRUE), .cols = c(25:33)) %>%
+  mutate(mutation_chr = str_split_i(MUTATION_ID, "_", 1),
+         mutation_pos = str_split_i(MUTATION_ID, "_", 2),
+         mutation_a1 = str_split_i(MUTATION_ID, "_", 3),
+         mutation_a2 = str_split_i(MUTATION_ID, "_", 4),
+         a1_C = case_when(mutation_a1 == "C" ~ 1,
+                          TRUE ~ 0),
+         a1_G = case_when(mutation_a1 == "G" ~ 1,
+                          TRUE ~ 0),
+         a1_A = case_when(mutation_a1 == "A" ~ 1,
+                          TRUE ~ 0),
+         a1_T = case_when(mutation_a1 == "T" ~ 1,
+                          TRUE ~ 0),
+         a2_C = case_when(mutation_a2 == "C" ~ 1,
+                          TRUE ~ 0),
+         a2_G = case_when(mutation_a2 == "G" ~ 1,
+                          TRUE ~ 0),
+         a2_A = case_when(mutation_a2 == "A" ~ 1,
+                          TRUE ~ 0),
+         a2_T = case_when(mutation_a2 == "T" ~ 1,
+                          TRUE ~ 0)) 
+```
+
+Making our first set of features: summing up the number of amino acids overall and in each peptide position for each patient.
+
+```{r}
+aa_list <- c("L", "V", "F", "T", "A", "I", "M", "C", "G", "Y", "H", "K", "S", "E", "R", "W", "P", "Q", "D", "N")
+for (aa in aa_list) {
+  dat[paste0("count_WT_", aa)] <- sapply(strsplit(dat$WT.Peptide, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_", aa)] <- sapply(strsplit(dat$MT.Peptide, ""), function(x) sum(x == aa))
+  
+  dat[paste0("count_MT_pos1_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_1, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos2_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_2, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos3_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_3, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos4_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_4, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos5_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_5, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos6_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_6, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos7_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_7, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos8_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_8, ""), function(x) sum(x == aa))
+  dat[paste0("count_MT_pos9_", aa)] <- sapply(strsplit(dat$MT_peptide_pos_9, ""), function(x) sum(x == aa))
+  
+  dat[paste0("count_WT_pos1_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_1, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos2_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_2, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos3_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_3, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos4_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_4, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos5_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_5, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos6_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_6, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos7_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_7, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos8_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_8, ""), function(x) sum(x == aa))
+  dat[paste0("count_WT_pos9_", aa)] <- sapply(strsplit(dat$WT_peptide_pos_9, ""), function(x) sum(x == aa))
+}
+```
+
+Our second set of features: summing up how many mutations on each chromosome for each patient.
+
+```{r}
+chr_list <- c(1:22, "X", "Y")
+for (chr in chr_list) {
+  dat[paste0("count_chr", chr)] <- sapply(strsplit(dat$mutation_chr, ""), function(x) sum(x == chr))
+}  
+```
+
+Now let's collapse by subject and join with the outcomes data for analysis:
+
+```{r}
+dat2 <- dat %>%
+  mutate(across(c(mutation_pos), as.numeric)) %>%
+  group_by(Sample) %>%
+  summarise(across(c(6, 7, 34, 37:468), sum, .names = "sum_{.col}")) %>%
+  left_join(outcomes)
+```
+
+## Finding "useful" features
+
+And by useful, I mean they generate a significant split in the data. I'm going to be looking for these using the entire dataset.
+
+```{r}
+#| warning: false
+
+# create a dataframe to retain features
+df_with_good_features <- data.frame(Sample = dat2$Sample)
+# Loop through each column and create a new binary feature based on mean or median
+for (i in c(2:436)) {
+  #print(i)
+  feature <- colnames(dat2)[i]
+  mean_i <- mean(dat2[[i]])
+  if (mean_i == 0) { # If there's no variance in the feature, move on
+    next
+  }
+  median_i <- median(dat2[[i]])
+  temp <- dat2 %>%
+    select(Sample, all_of(i), Months, Status) %>%
+    mutate(
+      above_mean = case_when(.data[[colnames(dat2)[i]]] > mean_i ~ 1, TRUE ~ 0),
+      above_median = case_when(.data[[colnames(dat2)[i]]] > median_i ~ 1, TRUE ~ 0)
+    )
+  # Calculate log rank p value
+  km_diff <- survdiff(Surv(Months, Status) ~ above_mean, data = temp)
+  if (km_diff$pvalue < 0.05) {
+    print(paste0("column number ", i, " has a p-value of ", km_diff$pvalue, " (mean)"))
+    # Add feature to dataframe to use for model
+    df_with_good_features <- temp %>%
+      select(1, 5) %>%
+      rename_with(~paste0(feature, "_above_mean"), matches("above_mean")) %>%
+      left_join(df_with_good_features)
+  }
+  
+  km_diff <- survdiff(Surv(Months, Status) ~ above_median, data = temp)
+  if (km_diff$pvalue < 0.05) {
+    print(paste0("column number ", i, " has a p-value of ", km_diff$pvalue, " (median)"))
+    # Add feature to dataframe to use for model
+    df_with_good_features <- temp %>%
+      select(1, 6) %>%
+      rename_with(~paste0(feature, "_above_median"), matches("above_median")) %>%
+      left_join(df_with_good_features)
+  }
+}
+```
+
+## Select features
+
+Now that we have found \> 200 potentially significant features, let's use feature selection to keep the meaningful ones.
+
+```{r}
+#| warning: false
+df_with_good_features <- df_with_good_features %>%
+  left_join(outcomes) %>% 
+    mutate(Status2 = factor(case_when(Months >= 14 ~ 1,
+                             TRUE ~ 0))) %>%
+  na.omit()
+
+x <- as.matrix(df_with_good_features[2:286])
+colnames(x) <- colnames(df_with_good_features)[2:286]
+y <- as.numeric(as.character(df_with_good_features$Status))
+lasso_model <- cv.glmnet(x = x, y = y)
+
+coef_matrix <- coef(lasso_model, s = lasso_model$lambda.min)
+selected_features <- colnames(x)[which(coef_matrix != 0)]
+print(selected_features)
+```
+
+Add the selected features to our model and test it with a genuine train/test split. Note we are using a different outcome for this because why not 🤷‍♀️
+
+```{r}
+#| fig-align: center
+#| fig-height: 6
+#| warning: false
+
+set.seed(35)
+# Define training/test datasets
+sample <- sample(c(TRUE, FALSE), nrow(df_with_good_features), replace=TRUE, prob=c(0.3,0.7))
+dat_train <- df_with_good_features[sample, ]
+dat_test <- df_with_good_features[!sample, ]
+
+# Generate classification model
+# With 14 month outcome
+default_glm_mod <- caret::train(
+  form = Status2 ~ sum_count_chrX_above_mean + sum_count_chr5_above_median + sum_count_MT_pos8_N_above_median + sum_count_MT_pos9_Q_above_mean + 
+    sum_count_WT_pos7_W_above_median + sum_count_WT_pos1_E_above_median,
+  data = dat_train %>% select(all_of(c(2:286, 290))),
+  method = "glm",
+  family = "binomial"
+)
+
+predictions <- predict(default_glm_mod, newdata = dat_test)
+
+dat2 <- cbind(dat_test, predictions) 
+
+km_fit <- survfit(Surv(Months, as.numeric(as.character(Status2))) ~ predictions, data = dat2)
+
+
+ggsurvplot(km_fit,
+           data = dat2,
+           risk.table = TRUE,
+           pval = TRUE, conf.int = TRUE, palette = "jco", pval.method = TRUE)
+
+```
+
+This is also quite sensitive to which individuals end up in the test/train groups. If we update `set.seed()`, the resulting p-value is not longer significant:
+
+```{r}
+#| warning: false
+#| fig-align: center
+#| fig-height: 6
+
+set.seed(34)
+# Define training/test datasets
+sample <- sample(c(TRUE, FALSE), nrow(df_with_good_features), replace=TRUE, prob=c(0.3,0.7))
+dat_train <- df_with_good_features[sample, ]
+dat_test <- df_with_good_features[!sample, ]
+
+# Generate classification model
+# With 14 month outcome
+default_glm_mod <- caret::train(
+  form = Status2 ~ sum_count_chrX_above_mean + sum_count_chr5_above_median + sum_count_MT_pos8_N_above_median + sum_count_MT_pos9_Q_above_mean + 
+    sum_count_WT_pos7_W_above_median + sum_count_WT_pos1_E_above_median,
+  data = dat_train %>% select(all_of(c(2:286, 290))),
+  method = "glm",
+  family = "binomial"
+)
+
+predictions <- predict(default_glm_mod, newdata = dat_test)
+
+dat2 <- cbind(dat_test, predictions) 
+
+km_fit <- survfit(Surv(Months, as.numeric(as.character(Status2))) ~ predictions, data = dat2)
+
+
+ggsurvplot(km_fit,
+           data = dat2,
+           risk.table = TRUE,
+           pval = TRUE, conf.int = TRUE, palette = "jco", pval.method = TRUE)
+```
